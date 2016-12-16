@@ -1133,7 +1133,7 @@ static PyObject* PyMinqlx_SetHoldable(PyObject* self, PyObject* args) {
 //        this generates holdable pickup sound on drop
 
 void __cdecl Switch_Touch_Item(gentity_t *ent) {
-    ent->touch = (void*)Touch_Item;
+    ent->touch = Touch_Item;
     ent->think = G_FreeEntity;
     ent->nextthink = level->time + 29000;
 }
@@ -1163,7 +1163,7 @@ static PyObject* PyMinqlx_DropHoldable(PyObject* self, PyObject* args) {
     if (item == 0) Py_RETURN_FALSE;
 
     gentity_t* entity = Drop_Item(&g_entities[client_id], bg_itemlist + item, 0);
-    entity->touch     = (void*)My_Touch_Item;
+    entity->touch     = My_Touch_Item;
     entity->parent    = &g_entities[client_id];
     entity->think     = Switch_Touch_Item;
     entity->nextthink = level->time + 1000;
@@ -1597,9 +1597,8 @@ static PyObject* PyMinqlx_ReplaceItems(PyObject* self, PyObject* args) {
 static PyObject* PyMinqlx_DevPrintItems(PyObject* self, PyObject* args) {
     gentity_t* ent;
     char buffer[1024], temp_buffer[1024];
-    int buffer_index = 0;
-    size_t chars_written;
-    char format[] = "%d %s\n";
+    int buffer_index = 0, chars_written;
+    const char format[]="%d %s\n";
     qboolean is_buffer_enough = qtrue;
 
     // default results
@@ -1631,6 +1630,27 @@ static PyObject* PyMinqlx_DevPrintItems(PyObject* self, PyObject* args) {
 
     if (is_buffer_enough)
         SV_SendServerCommand(NULL, "print \"%s\"", buffer);
+    Py_RETURN_NONE;
+}
+
+static PyObject* PyMinqlx_ForceWeaponWait(float wait_time) {
+    gentity_t* ent;
+
+    for (int i=0; i<MAX_GENTITIES; i++) {
+        ent = &g_entities[i];
+
+        if (!ent->inuse)
+            continue;
+
+		if (ent->s.eType != ET_ITEM || ent->item == NULL)
+            continue;		
+		
+		if (ent->item->giType != IT_WEAPON)
+			continue;
+				
+		g_entities[i].wait = wait_time;
+    }
+
     Py_RETURN_NONE;
 }
 
@@ -1725,6 +1745,8 @@ static PyMethodDef minqlxMethods[] = {
      "Replaces target entity's item with specified one."},
     {"dev_print_items", PyMinqlx_DevPrintItems, METH_NOARGS,
      "Prints all items and entity numbers to server console."},
+	{"force_weapon_wait", PyMinqlx_ForceWeaponWait, METH_VARARGS,
+     "Force all weapons to have a specified spawn wait time."},
     {NULL, NULL, 0, NULL}
 };
 
